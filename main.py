@@ -5,7 +5,7 @@ import time, gc
 from machine import Pin, I2C
 
 # Módulos
-from Modulos.ui import Colors, output_oled, output_terminal, output_debug
+from Modulos.ui import Colors, output_oled, output_oled_error, output_terminal, output_debug
 from Modulos.calculos import calculos_atmosfericos
 
 # ============================================================================
@@ -169,4 +169,5 @@ while True:
         updates = 0
         usage_ram = 0
         output_debug(updates, scan_i2c0, scan_i2c1, error_i2c0, error_i2c1, usage_ram, status, dots_terminal_debug, dots_adjust_1, dots_adjust_2)
+        output_oled_error(updates, usage_ram, oled, dots_oled)
         time.sleep(2.5)

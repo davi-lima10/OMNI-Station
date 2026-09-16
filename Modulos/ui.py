@@ -122,6 +122,16 @@ def output_oled(updates, calc, oled, dots_oled):
         oled.text(f"{f'Updates...':.<{dots_oled}}{updates}", 0, 56)
         oled.show()
 
+def output_oled_error(updates, usage_ram, oled, dots_oled):
+    if oled is not None:
+        oled.fill(0)
+        oled.text(f"Debug", 0, 0)
+        oled.text(f"----------------", 0, 8)
+        oled.text(f"{f'Updates':.<{dots_oled}}{updates}", 0, 16)
+        oled.text(f"{f'RAM':.<{dots_oled}}{usage_ram:.1f}%", 0, 24)
+        oled.text(f"{f'Status':.<{dots_oled}}ERRO", 0, 32)
+        oled.show()
+        
 # ============================================================================
 #  Output Terminal
 # ============================================================================
