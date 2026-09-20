@@ -99,7 +99,9 @@ while True:
                 temperatura, umidade_relativa = aht.measure() #type: ignore
                 _, pressao_atm_hpa = bmp.measure() #type: ignore
                 lux = veml.measure() #type: ignore
-                dioxido_carbono, _, _ = scd.measure() #type: ignore
+                data_co2 = scd.measure()
+                if data_co2:
+                    dioxido_carbono, _, _ = data_co2 # type: ignore
 
                 soma_temperatura += temperatura
                 soma_umidade_relativa += umidade_relativa
