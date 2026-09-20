@@ -1,6 +1,11 @@
 """
-sensors_env.py — MicroPython: SHT4x + BMP280 (I2C)
-v2: CRC no SHT4x, checagem de status no BMP280, read_all() unificado.
+sensors_env.py — MicroPython drivers: AHT20, BMP280, VEML7700, SCD40
+Usage:
+    from sensors_env import AHT20, BMP280, VEML7700, SCD40
+    aht = AHT20(i2c)
+    temperature, humidity = aht.measure()
+
+MIT License — v1.0.0
 """
 
 from machine import I2C
@@ -8,45 +13,9 @@ import struct
 import time
 
 # ============================================================================
-#  CONSTANTES
+#  CRC-8 Sensirion (poly 0x31, init 0xFF) — used by SCD40
 # ============================================================================
 
-SHT4X_I2C_ADDR      = const(0x44)
-SHT4X_CMD_MEASURE_HIGH   = const(0xFD)
-SHT4X_CMD_MEASURE_MEDIUM = const(0xF6)
-SHT4X_CMD_MEASURE_LOW    = const(0xE0)
-SHT4X_CMD_SERIAL_NUMBER  = const(0x89)
-SHT4X_CMD_RESET          = const(0x94)
-SHT4X_CMD_HEATER_200_1S  = const(0x39)
-SHT4X_CMD_HEATER_200_01S = const(0x32)
-SHT4X_CMD_HEATER_110_1S  = const(0x2F)
-SHT4X_CMD_HEATER_110_01S = const(0x24)
-SHT4X_CMD_HEATER_20_1S   = const(0x1E)
-SHT4X_CMD_HEATER_20_01S  = const(0x15)
-
-BMP280_I2C_ADDR      = const(0x76)
-BMP280_REG_ID        = const(0xD0)
-BMP280_REG_RESET     = const(0xE0)
-BMP280_REG_STATUS    = const(0xF3)
-BMP280_REG_CTRL_MEAS = const(0xF4)
-BMP280_REG_CONFIG    = const(0xF5)
-BMP280_REG_PRESS_MSB = const(0xF7)
-BMP280_CALIB_START   = const(0x88)
-
-BMP280_MODE_SLEEP  = const(0x00)
-BMP280_MODE_FORCED = const(0x01)
-BMP280_MODE_NORMAL = const(0x03)
-
-BMP280_OSRS_1X  = const(0x01)
-BMP280_OSRS_4X  = const(0x03)
-BMP280_OSRS_16X = const(0x05)
-
-BMP280_FILTER_OFF = const(0x00)
-BMP280_FILTER_4   = const(0x02)
-
-SHT4X_RX_LEN = const(6)
-
-# CRC-8 polinômio 0x31 (Sensirion), init 0xFF
 _CRC_TABLE = []
 for _b in range(256):
     _c = _b
@@ -55,7 +24,7 @@ for _b in range(256):
     _CRC_TABLE.append(_c)
 
 
-def _sht4x_crc(data: bytes) -> int:
+def _crc8(data: bytes) -> int:
     crc = 0xFF
     for b in data:
         crc = _CRC_TABLE[crc ^ b]
@@ -63,144 +32,121 @@ def _sht4x_crc(data: bytes) -> int:
 
 
 # ============================================================================
-#  SHT4x
+#  AHT20 — Temperature / Humidity  (I2C addr 0x38)
 # ============================================================================
 
-class SHT4x:
-    """Driver SHT4x com verificação de CRC."""
+AHT20_I2C_ADDR = const(0x38)
+AHT20_CMD_CALIBRATE = const(0xBE)
+AHT20_CMD_MEASURE = const(0xAC)
+AHT20_CMD_RESET = const(0xBA)
 
-    def __init__(self, i2c: I2C, addr: int = SHT4X_I2C_ADDR):
+
+class AHT20:
+    """Aosong AHT20 temperature/humidity sensor.
+
+    Usage:
+        aht = AHT20(i2c)
+        temperature, humidity = aht.measure()
+    """
+
+    def __init__(self, i2c: I2C, addr: int = AHT20_I2C_ADDR):
         self.i2c = i2c
         self.addr = addr
-        self.ok = False
-        try:
-            self.serial = self._read_serial()
-            self.ok = True
-        except OSError:
-            raise RuntimeError("SHT4x não encontrado no endereço 0x{:02X}".format(addr))
+        time.sleep_ms(40)  # power-on settling
+        status = i2c.readfrom(addr, 1)[0]
+        if not (status & 0x08):  # calibration-enabled bit
+            i2c.writeto(addr, bytes([AHT20_CMD_CALIBRATE, 0x08, 0x00]))
+            time.sleep_ms(10)
 
-    def _send_cmd(self, cmd: int, delay_ms: int = 0) -> None:
-        self.i2c.writeto(self.addr, bytes([cmd]))
-        if delay_ms:
-            time.sleep_ms(delay_ms)
-
-    def _read_serial(self) -> bytes:
-        self._send_cmd(SHT4X_CMD_SERIAL_NUMBER, delay_ms=10)
-        return self.i2c.readfrom(self.addr, 6)
-
-    def measure(self, precision: int = SHT4X_CMD_MEASURE_HIGH):
-        """
-        Medição com validação CRC.
-        Retorna (temperatura_°C, umidade_%).
-        Levanta OSError em falha I2C, ValueError em CRC inválido.
-        """
-        delays = {
-            SHT4X_CMD_MEASURE_HIGH:   12,   # datasheet: 8.3ms típico; margem
-            SHT4X_CMD_MEASURE_MEDIUM: 6,
-            SHT4X_CMD_MEASURE_LOW:    3,
-        }
-        self._send_cmd(precision, delay_ms=delays.get(precision, 12))
-        data = self.i2c.readfrom(self.addr, SHT4X_RX_LEN)
-
-        # Valida CRC dos dois pares de bytes
-        if _sht4x_crc(data[0:2]) != data[2] or _sht4x_crc(data[3:5]) != data[5]:
-            raise ValueError("SHT4x: CRC inválido (leitura descartada)")
-
-        t_raw = (data[0] << 8) | data[1]
-        temp = -45.0 + 175.0 * t_raw / 65535.0
-        h_raw = (data[3] << 8) | data[4]
-        hum = -6.0 + 125.0 * h_raw / 65535.0
-
-        hum = max(0.0, min(100.0, hum))
-        self.ok = True
-        return temp, hum
+    def measure(self):
+        """Returns (temperature_C, humidity_%). ~80 ms per reading."""
+        self.i2c.writeto(self.addr, bytes([AHT20_CMD_MEASURE, 0x33, 0x00]))
+        time.sleep_ms(80)
+        d = self.i2c.readfrom(self.addr, 7)
+        if d[0] & 0x80:
+            raise ValueError("AHT20: sensor busy")
+        h_raw = ((d[1] << 16) | (d[2] << 8) | d[3]) >> 4
+        t_raw = ((d[3] & 0x0F) << 16) | (d[4] << 8) | d[5]
+        humidity = h_raw * 100.0 / 1048576.0
+        temperature = t_raw * 200.0 / 1048576.0 - 50.0
+        return temperature, max(0.0, min(100.0, humidity))
 
     def reset(self) -> None:
-        self._send_cmd(SHT4X_CMD_RESET, delay_ms=2)
-
-    def heater_on(self, duration: str = "short", power: str = "low") -> None:
-        table = {
-            ("low", "short"): SHT4X_CMD_HEATER_20_01S,
-            ("low", "long"): SHT4X_CMD_HEATER_20_1S,
-            ("medium", "short"): SHT4X_CMD_HEATER_110_01S,
-            ("medium", "long"): SHT4X_CMD_HEATER_110_1S,
-            ("high", "short"): SHT4X_CMD_HEATER_200_01S,
-            ("high", "long"): SHT4X_CMD_HEATER_200_1S,
-        }
-        cmd = table.get((power, duration))
-        if cmd is None:
-            raise ValueError("Combinação inválida power/duration")
-        self._send_cmd(cmd)
-        time.sleep_ms(1100 if duration == "long" else 150)
-        self.reset()  # heater exige soft reset depois
+        self.i2c.writeto(self.addr, bytes([AHT20_CMD_RESET]))
+        time.sleep_ms(20)
 
 
 # ============================================================================
-#  BMP280
+#  BMP280 — Temperature / Pressure  (I2C addr 0x76 or 0x77)
 # ============================================================================
+
+BMP280_I2C_ADDR = const(0x76)
+BMP280_REG_ID = const(0xD0)
+BMP280_REG_RESET = const(0xE0)
+BMP280_REG_STATUS = const(0xF3)
+BMP280_REG_CTRL_MEAS = const(0xF4)
+BMP280_REG_CONFIG = const(0xF5)
+BMP280_REG_PRESS_MSB = const(0xF7)
+BMP280_CALIB_START = const(0x88)
+BMP280_MODE_NORMAL = const(0x03)
+BMP280_MODE_SLEEP = const(0x00)
+BMP280_OSRS_4X = const(0x03)
+BMP280_FILTER_4 = const(0x02)
+
 
 class BMP280:
-    """Driver BMP280 com checagem de status de conversão."""
+    """Bosch BMP280 pressure sensor.
+
+    Usage:
+        bmp = BMP280(i2c)
+        temperature, pressure_hpa = bmp.measure()
+    """
 
     def __init__(self, i2c: I2C, addr: int = BMP280_I2C_ADDR):
         self.i2c = i2c
         self.addr = addr
-        self.ok = False
-        chip_id = self._read_reg(BMP280_REG_ID, 1)[0]
+        chip_id = i2c.readfrom_mem(addr, BMP280_REG_ID, 1)[0]
         if chip_id not in (0x58, 0x60):
-            raise RuntimeError("BMP280 ID inválido: 0x{:02X}".format(chip_id))
+            raise RuntimeError("BMP280: unexpected chip ID 0x{:02X}".format(chip_id))
+        self.t_fine = 0
         self._load_calibration()
         self.normal_mode()
-        self.ok = True
-
-    def _write_reg(self, reg: int, data: bytes) -> None:
-        self.i2c.writeto_mem(self.addr, reg, data)
-
-    def _read_reg(self, reg: int, n: int = 1) -> bytes:
-        return self.i2c.readfrom_mem(self.addr, reg, n)
 
     def _load_calibration(self) -> None:
-        calib = self._read_reg(BMP280_CALIB_START, 24)
         (self.dig_T1, self.dig_T2, self.dig_T3,
          self.dig_P1, self.dig_P2, self.dig_P3,
          self.dig_P4, self.dig_P5, self.dig_P6,
-         self.dig_P7, self.dig_P8, self.dig_P9) = struct.unpack('<HhhHhhhhhhhh', calib)
-        self.t_fine = 0
+         self.dig_P7, self.dig_P8, self.dig_P9) = struct.unpack(
+            '<HhhHhhhhhhhh', self.i2c.readfrom_mem(self.addr, BMP280_CALIB_START, 24))
 
-    def normal_mode(self, temp_osrs: int = BMP280_OSRS_4X,
-                    press_osrs: int = BMP280_OSRS_4X,
-                    filter_coeff: int = BMP280_FILTER_4) -> None:
-        ctrl = (temp_osrs << 5) | (press_osrs << 2) | BMP280_MODE_NORMAL
-        self._write_reg(BMP280_REG_CTRL_MEAS, bytes([ctrl]))
-        self._write_reg(BMP280_REG_CONFIG, bytes([filter_coeff << 2]))
+    def normal_mode(self) -> None:
+        self.i2c.writeto_mem(self.addr, BMP280_REG_CTRL_MEAS,
+                             bytes([(BMP280_OSRS_4X << 5) | (BMP280_OSRS_4X << 2)
+                                    | BMP280_MODE_NORMAL]))
+        self.i2c.writeto_mem(self.addr, BMP280_REG_CONFIG,
+                             bytes([BMP280_FILTER_4 << 2]))
 
     def sleep(self) -> None:
-        self._write_reg(BMP280_REG_CTRL_MEAS, bytes([BMP280_MODE_SLEEP]))
+        self.i2c.writeto_mem(self.addr, BMP280_REG_CTRL_MEAS,
+                             bytes([BMP280_MODE_SLEEP]))
 
-    def soft_reset(self) -> None:
-        self._write_reg(BMP280_REG_RESET, bytes([0xB6]))
-        time.sleep_ms(10)
-        self._load_calibration()
-        self.normal_mode()
-
-    def _read_raw(self):
-        # Espera conversão terminar (bit 3 = measuring), máx 25ms
-        for _ in range(25):
-            if not (self._read_reg(BMP280_REG_STATUS, 1)[0] & 0x08):
+    def measure(self):
+        """Returns (temperature_C, pressure_hPa)."""
+        for _ in range(25):  # wait for conversion, max ~25 ms
+            if not (self.i2c.readfrom_mem(self.addr, BMP280_REG_STATUS, 1)[0] & 0x08):
                 break
             time.sleep_ms(1)
-        data = self._read_reg(BMP280_REG_PRESS_MSB, 6)
-        press_raw = (data[0] << 12) | (data[1] << 4) | (data[2] >> 4)
-        temp_raw = (data[3] << 12) | (data[4] << 4) | (data[5] >> 4)
-        return temp_raw, press_raw
+        d = self.i2c.readfrom_mem(self.addr, BMP280_REG_PRESS_MSB, 6)
+        press_raw = (d[0] << 12) | (d[1] << 4) | (d[2] >> 4)
+        temp_raw = (d[3] << 12) | (d[4] << 4) | (d[5] >> 4)
 
-    def _compensate_temp(self, adc_T: int) -> float:
-        var1 = (adc_T / 16384.0 - self.dig_T1 / 1024.0) * self.dig_T2
-        var2 = ((adc_T / 131072.0 - self.dig_T1 / 8192.0) ** 2) * self.dig_T3
+        # Temperature compensation (Bosch datasheet)
+        var1 = (temp_raw / 16384.0 - self.dig_T1 / 1024.0) * self.dig_T2
+        var2 = ((temp_raw / 131072.0 - self.dig_T1 / 8192.0) ** 2) * self.dig_T3
         self.t_fine = int(var1 + var2)
-        return (var1 + var2) / 5120.0
+        temperature = (var1 + var2) / 5120.0
 
-    def _compensate_press(self, adc_P: int) -> float:
+        # Pressure compensation (Bosch datasheet)
         var1 = (self.t_fine / 2.0) - 64000.0
         var2 = var1 * var1 * self.dig_P6 / 32768.0
         var2 = var2 + var1 * self.dig_P5 * 2.0
@@ -208,111 +154,163 @@ class BMP280:
         var1 = (self.dig_P3 * var1 * var1 / 524288.0 + self.dig_P2 * var1) / 524288.0
         var1 = (1.0 + var1 / 32768.0) * self.dig_P1
         if abs(var1) < 1e-12:
-            return 0.0
-        p = 1048576.0 - adc_P
+            return temperature, 0.0
+        p = 1048576.0 - press_raw
         p = (p - (var2 / 4096.0)) * 6250.0 / var1
         var1 = self.dig_P9 * p * p / 2147483648.0
         var2 = p * self.dig_P8 / 32768.0
         p = p + (var1 + var2 + self.dig_P7) / 16.0
-        return p / 100.0
-
-    def measure(self):
-        """Retorna (temperatura_°C, pressão_hPa). Levanta OSError em falha I2C."""
-        temp_raw, press_raw = self._read_raw()
-        temp = self._compensate_temp(temp_raw)
-        press = self._compensate_press(press_raw)
-        self.ok = True
-        return temp, press
+        return temperature, p / 100.0
 
     def altitude(self, sea_level_pressure: float = 1013.25) -> float:
-        _, press = self.measure()
-        return 44330.0 * (1.0 - (press / sea_level_pressure) ** (1.0 / 5.255))
+        _, pressure = self.measure()
+        return 44330.0 * (1.0 - (pressure / sea_level_pressure) ** (1.0 / 5.255))
 
 
 # ============================================================================
-#  Interface unificada
+#  VEML7700 — Ambient Light  (I2C addr 0x10)
 # ============================================================================
 
-class SensorHub:
+VEML7700_I2C_ADDR = const(0x10)
+VEML7700_REG_ALS_CONF = const(0x00)
+VEML7700_REG_ALS = const(0x04)
+VEML7700_REG_WHITE = const(0x05)
+
+_VEML_IT = {100: (0xC0, 0.1), 200: (0x80, 0.2), 400: (0x00, 0.4),
+            800: (0x40, 0.8), 50: (0xCC, 0.05), 25: (0xD8, 0.025)}
+_VEML_GAIN = {1: (0x00, 1.0), 2: (0x01, 2.0),
+              0.125: (0x02, 0.125), 0.25: (0x03, 0.25)}
+
+
+class VEML7700:
+    """Vishay VEML7700 ambient light sensor.
+
+    Usage:
+        veml = VEML7700(i2c)
+        lux = veml.measure()
     """
-    Agrupa SHT4x + BMP280 com reconexão automática.
-    read_all() retorna dict — valores None quando o sensor falha.
+
+    def __init__(self, i2c: I2C, addr: int = VEML7700_I2C_ADDR,
+                 gain: float = 1.0, it_ms: int = 100):
+        self.i2c = i2c
+        self.addr = addr
+        self._write_reg(VEML7700_REG_ALS_CONF, 0x0000)  # power on
+        self.configure(gain, it_ms)
+
+    def _write_reg(self, reg: int, value: int) -> None:
+        self.i2c.writeto_mem(self.addr, reg, struct.pack('<H', value))
+
+    def _read_reg(self, reg: int) -> int:
+        return struct.unpack('<H', self.i2c.readfrom_mem(self.addr, reg, 2))[0]
+
+    def configure(self, gain: float = 1.0, it_ms: int = 100) -> None:
+        """gain: 1, 2, 0.25 or 0.125 | it_ms: 25, 50, 100, 200, 400, 800."""
+        if it_ms not in _VEML_IT or gain not in _VEML_GAIN:
+            raise ValueError("invalid gain or integration time")
+        self.gain = gain
+        self.it_ms = it_ms
+        self._write_reg(VEML7700_REG_ALS_CONF,
+                        _VEML_IT[it_ms][0] | _VEML_GAIN[gain][0])
+        time.sleep_ms(5)
+
+    def measure(self) -> float:
+        """Returns ambient light in lux (waits one integration cycle)."""
+        time.sleep_ms(int(self.it_ms * 1.2) + 5)
+        raw = self._read_reg(VEML7700_REG_ALS)
+        return 0.0576 * raw / (_VEML_GAIN[self.gain][1] * _VEML_IT[self.it_ms][1])
+
+    def read_white(self) -> int:
+        """White channel raw counts (uncalibrated broadband)."""
+        return self._read_reg(VEML7700_REG_WHITE)
+
+    def power_off(self) -> None:
+        self._write_reg(VEML7700_REG_ALS_CONF, 0x0001)
+
+
+# ============================================================================
+#  SCD40 — CO2 / Temperature / Humidity  (I2C addr 0x62)
+# ============================================================================
+
+SCD40_I2C_ADDR = const(0x62)
+SCD40_CMD_START_PERIODIC = const(0x21B1)
+SCD40_CMD_STOP_PERIODIC = const(0x3F86)
+SCD40_CMD_READ_MEASUREMENT = const(0xEC05)
+SCD40_CMD_GET_DATA_READY = const(0xE4B8)
+SCD40_CMD_WAKE_UP = const(0x36F6)
+SCD40_CMD_INIT = const(0x3639)
+SCD40_CMD_SET_TEMP_OFFSET = const(0x241D)
+SCD40_CMD_SET_ALTITUDE = const(0x2427)
+
+
+class SCD40:
+    """Sensirion SCD40 true-CO2 sensor (NDIR photoacoustic).
+
+    Usage:
+        scd = SCD40(i2c)
+        scd.start_periodic()
+        # then, at most once per 5 s:
+        co2_ppm, temperature, humidity = scd.measure()
     """
 
-    def __init__(self, i2c_id: int, scl: int, sda: int, freq: int = 400000):
-        self.i2c_id = i2c_id
-        self.scl = scl
-        self.sda = sda
-        self.freq = freq
-        self.sht = None
-        self.bmp = None
-        self._connect()
-
-    def _make_i2c(self) -> I2C:
-        from machine import Pin
-        return I2C(self.i2c_id, scl=Pin(self.scl), sda=Pin(self.sda), freq=self.freq)
-
-    def _connect(self) -> None:
+    def __init__(self, i2c: I2C, addr: int = SCD40_I2C_ADDR):
+        self.i2c = i2c
+        self.addr = addr
         try:
-            i2c = self._make_i2c()
-            if self.sht is None:
-                try:
-                    self.sht = SHT4x(i2c)
-                except Exception:
-                    self.sht = None
-            if self.bmp is None:
-                try:
-                    self.bmp = BMP280(i2c)
-                except Exception:
-                    self.bmp = None
-            self.last_error = None
-        except Exception as e:
-            self.last_error = str(e)
+            self._write_words(SCD40_CMD_WAKE_UP, [])
+        except OSError:
+            pass  # no ACK during wake-up is expected
+        time.sleep_ms(20)
+        self._write_words(SCD40_CMD_STOP_PERIODIC, [])
+        time.sleep_ms(500)
+        self._write_words(SCD40_CMD_INIT, [])
+        time.sleep_ms(100)
 
-    def reconnect(self) -> None:
-        """Tenta recriar o barramento e reinstanciar sensores travados."""
-        try:
-            self.sht = None
-            self.bmp = None
-            self._connect()
-        except Exception as e:
-            self.last_error = str(e)
+    def _write_words(self, cmd: int, words: list) -> None:
+        data = bytes([cmd >> 8, cmd & 0xFF])
+        for w in words:
+            data += bytes([w >> 8, w & 0xFF,
+                           _crc8(bytes([w >> 8, w & 0xFF]))])
+        self.i2c.writeto(self.addr, data)
 
-    def read_all(self, precision: int = SHT4X_CMD_MEASURE_HIGH) -> dict:
-        """
-        Retorna:
-        {
-            'temperatura': float ou None,   # SHT4x
-            'umidade':     float ou None,   # SHT4x
-            'pressao':     float ou None,   # BMP280 (hPa)
-            'erro':        str ou None,
-        }
-        Um sensor falhando não impede a leitura do outro.
-        Se ambos falharem, tenta reconectar na próxima chamada.
-        """
-        result = {'temperatura': None, 'umidade': None,
-                  'pressao': None, 'erro': None}
-        failed = False
+    def _read_words(self, cmd: int, n_words: int, delay_ms: int = 0) -> list:
+        self.i2c.writeto(self.addr, bytes([cmd >> 8, cmd & 0xFF]))
+        if delay_ms:
+            time.sleep_ms(delay_ms)
+        raw = self.i2c.readfrom(self.addr, n_words * 3)
+        out = []
+        for i in range(n_words):
+            b = raw[i * 3:i * 3 + 3]
+            if _crc8(b[0:2]) != b[2]:
+                raise ValueError("SCD40: CRC mismatch")
+            out.append((b[0] << 8) | b[1])
+        return out
 
-        if self.sht is not None:
-            try:
-                t, h = self.sht.measure(precision)
-                result['temperatura'] = t # type: ignore
-                result['umidade'] = h # type: ignore
-            except Exception as e:
-                failed = True
-                result['erro'] = "SHT4x: " + str(e) # type: ignore
+    def set_temperature_offset(self, celsius: float) -> None:
+        """Compensate board self-heating (e.g. 4.0). Call before start_periodic()."""
+        self._write_words(SCD40_CMD_SET_TEMP_OFFSET,
+                          [int(celsius * 65536.0 / 175.0)])
 
-        if self.bmp is not None:
-            try:
-                _, p = self.bmp.measure()
-                result['pressao'] = p # type: ignore
-            except Exception as e:
-                failed = True
-                result['erro'] = (result['erro'] or "") + " BMP280: " + str(e) # type: ignore
+    def set_altitude(self, meters: int) -> None:
+        """Pressure compensation by altitude. Call before start_periodic()."""
+        self._write_words(SCD40_CMD_SET_ALTITUDE, [meters])
 
-        # Ambos falhando ou ausentes → tenta reconexão (com backoff externo)
-        if (self.sht is None and self.bmp is None) or failed:
-            self.last_error = result['erro']
+    def start_periodic(self) -> None:
+        """Start continuous measurement (1 new reading every 5 s)."""
+        self._write_words(SCD40_CMD_START_PERIODIC, [])
 
-        return result
+    def stop_periodic(self) -> None:
+        self._write_words(SCD40_CMD_STOP_PERIODIC, [])
+
+    def data_ready(self) -> bool:
+        return bool(self._read_words(SCD40_CMD_GET_DATA_READY, 1)[0])
+
+    def measure(self):
+        """Returns (co2_ppm, temperature_C, humidity_%).
+        Returns None if no new reading is available yet (5 s interval)."""
+        if not self.data_ready():
+            return None
+        w = self._read_words(SCD40_CMD_READ_MEASUREMENT, 3)
+        co2 = w[0]
+        temperature = -45.0 + 175.0 * w[1] / 65535.0
+        humidity = 100.0 * w[2] / 65535.0
+        return co2, temperature, humidity

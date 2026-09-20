@@ -3,6 +3,8 @@
 # ============================================================================
 import time, gc
 from machine import Pin, I2C
+from Bibliotecas.sensors_env import AHT20, BMP280, VEML7700, SCD40
+
 
 # Módulos
 from Modulos.ui import Colors, output_oled, output_oled_error, output_terminal, output_debug
@@ -26,8 +28,10 @@ temperatura = None
 umidade_relativa = None
 pressao_atm_hpa = None
 
-sht = None
+aht = None
 bmp = None
+veml = None
+scd = None
 rtc = None
 oled = None
 
@@ -36,6 +40,9 @@ scan_i2c1 = []
 
 error_i2c0 = "N/A"
 error_i2c1 = "N/A"
+
+LED_ON = Pin(18, Pin.OUT)
+LED_ON.on()
 
 # ----------------------------------------------------------------------------
 #  Barramento I2C
@@ -53,12 +60,13 @@ except Exception as e:
 def setup_i2c0():
     global sht, bmp, error_i2c0
     try:
-        from Bibliotecas import sensors_env
-        time.sleep(0.5)
-        sht = sensors_env.SHT4x(i2c0)
-        bmp = sensors_env.BMP280(i2c0)
+        aht = AHT20(i2c0)
+        bmp = BMP280(i2c0)
+        veml = VEML7700(i2c0)
+        scd = SCD40(i2c0)
+        scd.start_periodic()
     except Exception as e:
-        error_i2c0 = f"{Colors.RED}{e}"
+        error_i2c0 = "N/A"#error_i2c0 = f"{Colors.RED}{e}"
 
 setup_i2c0()
 
@@ -81,15 +89,17 @@ while True:
     # ------------------------------------------------------------------------
     #  Leitura dos sensores
     # ------------------------------------------------------------------------
-    if sht is not None and bmp is not None:
+    if aht is not None and bmp is not None and veml is not None and scd is not None:
         try:
             soma_temperatura = 0
             soma_umidade_relativa = 0
             soma_pressao_atm_hpa = 0
 
             for _ in range(25):
-                temperatura, umidade_relativa = sht.measure()  # type: ignore
-                _, pressao_atm_hpa = bmp.measure()  # type: ignore
+                temperatura, umidade_relativa = aht.measure() #type: ignore
+                _, pressao_atm_hpa = bmp.measure() #type: ignore
+                lux = veml.measure() #type: ignore
+                dioxido_carbono, _, _ = scd.measure() #type: ignore
 
                 soma_temperatura += temperatura
                 soma_umidade_relativa += umidade_relativa
@@ -138,16 +148,16 @@ while True:
             temperatura = 99.99
 
         # Cálculos
-        calc = calculos_atmosfericos(temperatura, umidade_relativa, pressao_atm_hpa)
+        calc = calculos_atmosfericos(temperatura, umidade_relativa, pressao_atm_hpa, lux, dioxido_carbono) #type: ignore
 
         # Debug
         gc.collect()
         free_ram = gc.mem_free()
         allocated_ram = gc.mem_alloc()
         usage_ram = allocated_ram / (allocated_ram + free_ram) * 100
-        updates += 1
         scan_i2c0 = [hex(a) for a in i2c0.scan()]
         scan_i2c1 = [hex(a) for a in i2c1.scan()]
+        updates += 1
 
         # Output
         try:
