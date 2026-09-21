@@ -15,7 +15,7 @@ from Modulos.calculos import calculos_atmosfericos
 # ============================================================================
 space_terminal = 60
 dots_terminal = 55
-dots_terminal_debug = 105
+dots_large_terminal = 105
 dots_adjust_1 = "."
 dots_adjust_2 = ".."
 dots_oled = 8
@@ -165,8 +165,8 @@ while True:
         else:
             status = f"{Colors.RED}Erros detectados"
 
-        output_terminal(timestamp_display, calc, dots_terminal, dots_adjust_1, dots_adjust_2, space_terminal)
-        output_debug(updates, scan_i2c0, scan_i2c1, error_i2c0, error_i2c1, usage_ram, status, dots_terminal_debug, dots_adjust_1, dots_adjust_2)
+        output_terminal(timestamp_display, calc, dots_terminal, dots_large_terminal, dots_adjust_1, dots_adjust_2, space_terminal)
+        output_debug(updates, scan_i2c0, scan_i2c1, error_i2c0, error_i2c1, usage_ram, status, dots_large_terminal, dots_adjust_1, dots_adjust_2)
         output_oled(updates, calc, oled, dots_oled)
 
     else:
@@ -174,6 +174,6 @@ while True:
         status = f"{Colors.RED}Erro crítico detectado"
         updates = 0
         usage_ram = 0
-        output_debug(updates, scan_i2c0, scan_i2c1, error_i2c0, error_i2c1, usage_ram, status, dots_terminal_debug, dots_adjust_1, dots_adjust_2)
+        output_debug(updates, scan_i2c0, scan_i2c1, error_i2c0, error_i2c1, usage_ram, status, dots_large_terminal, dots_adjust_1, dots_adjust_2)
         output_oled_error(updates, usage_ram, oled, dots_oled)
         time.sleep(2.5)

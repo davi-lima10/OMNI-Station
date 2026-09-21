@@ -119,6 +119,7 @@ def output_oled(updates, calc, oled, dots_oled):
         oled.text(f"{f'Td':.<{dots_oled}}{calc['ponto_orvalho']:.1f} C", 0, 24)
         oled.text(f"{f'UR':.<{dots_oled}}{calc['umidade_relativa']:.1f} %", 0, 32)
         oled.text(f"{f'P':.<{dots_oled}}{calc['pressao_atm']:.1f} kPa", 0, 40)
+        oled.text(f"{f'Lux':.<{dots_oled}}{calc['lux']:.0f} lx", 0, 48)
         oled.text(f"{f'Updates...':.<{dots_oled}}{updates}", 0, 56)
         oled.show()
 
@@ -135,7 +136,7 @@ def output_oled_error(updates, usage_ram, oled, dots_oled):
 # ============================================================================
 #  Output Terminal
 # ============================================================================
-def output_terminal(timestamp_display, calc, dots_terminal, dots_adjust_1, dots_adjust_2, space_terminal):
+def output_terminal(timestamp_display, calc, dots_terminal, dots_large_terminal, dots_adjust_1, dots_adjust_2, space_terminal):
     if calc['bulbo_umido'] is not None:
         bulbo_umido_txt = f"{Colors.MAGENTA}{calc['bulbo_umido']:.2f}°C{Colors.RESET}"
     else:
@@ -155,20 +156,21 @@ def output_terminal(timestamp_display, calc, dots_terminal, dots_adjust_1, dots_
     #  Variáveis do Terminal
     # ----------------------------------------------------------------------------
     division_string = f"{Colors.GRAY}╰────────────────────────────────────────────────────────────╯{Colors.RESET}"
+    long_division_string = f"{Colors.GRAY}╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯{Colors.RESET}"
 
-    dados_entrada_string         =      f"{Colors.GRAY}╭───── {Colors.BLUE}Dados de Entrada {Colors.GRAY}─────────────────────────────────────╮{Colors.RESET}"
+    dados_entrada_string         =      f"{Colors.GRAY}╭───── {Colors.BLUE}Dados de Entrada {Colors.GRAY}──────────────────────────────────────────────────────────────────────────────────────────────────────╮{Colors.RESET}"
     energia_ar_string            =      f"{Colors.GRAY}╭───── {Colors.MAGENTA}Energia do Ar {Colors.GRAY}────────────────────────────────────────╮{Colors.RESET}"
     propriedades_umidade_string  =      f"{Colors.GRAY}╭───── {Colors.MAGENTA}Propriedades da Umidade {Colors.GRAY}──────────────────────────────╮{Colors.RESET}"
     estado_atmosferico_string    =      f"{Colors.GRAY}╭───── {Colors.MAGENTA}Estado Atmosférico {Colors.GRAY}───────────────────────────────────╮{Colors.RESET}"
 
-    temperatura_string           =      f"{Colors.RESET}{f'  Temperatura{Colors.GRAY}':.<{dots_terminal}}{Colors.BLUE}{calc['temperatura']:.2f}°C{Colors.RESET}"
-    umidade_relativa_string      =      f"{Colors.RESET}{f'  Umidade Relativa{Colors.GRAY}':.<{dots_terminal}}{Colors.BLUE}{calc['umidade_relativa']:.2f}%{Colors.RESET}"
-    pressao_atm_string           =      f"{Colors.RESET}{f'  Pressão Atmosférica{Colors.GRAY}':.<{dots_terminal}}{dots_adjust_2}{Colors.BLUE}{calc['pressao_atm']:.1f} kPa{Colors.RESET}"
-    lux_string                   =      f"{Colors.RESET}{f'  Lux{Colors.GRAY}':.<{dots_terminal}}{Colors.BLUE}{calc['lux']:.2f} lx{Colors.RESET}"
+    temperatura_string           =      f"{Colors.RESET}{f'  Temperatura{Colors.GRAY}':.<{dots_large_terminal}}{Colors.BLUE}{calc['temperatura']:.2f}°C{Colors.RESET}"
+    umidade_relativa_string      =      f"{Colors.RESET}{f'  Umidade Relativa{Colors.GRAY}':.<{dots_large_terminal}}{Colors.BLUE}{calc['umidade_relativa']:.2f}%{Colors.RESET}"
+    pressao_atm_string           =      f"{Colors.RESET}{f'  Pressão Atmosférica{Colors.GRAY}':.<{dots_large_terminal}}{dots_adjust_2}{Colors.BLUE}{calc['pressao_atm']:.1f} kPa{Colors.RESET}"
+    lux_string                   =      f"{Colors.RESET}{f'  Lux{Colors.GRAY}':.<{dots_large_terminal}}{Colors.BLUE}{calc['lux']:.2f} lx{Colors.RESET}"
     
-    entalpia_ar_string           =      f"{Colors.RESET}{f'    Entalpia do Ar Úmido{Colors.GRAY}':.<{dots_terminal}}{dots_adjust_1}{Colors.MAGENTA}{calc['entalpia_ar']:.2f} kJ/kg{Colors.RESET}"
-    energia_latente_string       =      f"{Colors.RESET}{f'    Energia Latente{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['energia_latente']:.2f} kJ/kg{Colors.RESET}"
-    temperatura_potencial_string =      f"{Colors.RESET}{f'    Temperatura Potencial{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['temperatura_potencial']:.2f} K{Colors.RESET}"
+    entalpia_ar_string           =      f"{Colors.RESET}{f'  Entalpia do Ar Úmido{Colors.GRAY}':.<{dots_terminal}}{dots_adjust_1}{Colors.MAGENTA}{calc['entalpia_ar']:.2f} kJ/kg{Colors.RESET}"
+    energia_latente_string       =      f"{Colors.RESET}{f'  Energia Latente{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['energia_latente']:.2f} kJ/kg{Colors.RESET}"
+    temperatura_potencial_string =      f"{Colors.RESET}{f'  Temperatura Potencial{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['temperatura_potencial']:.2f} K{Colors.RESET}"
 
     ponto_orvalho_string         =      f"{Colors.RESET}{f'  Ponto de Orvalho{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['ponto_orvalho']:.2f}°C{Colors.RESET}"
     avp_string                   =      f"{Colors.RESET}{f'  AVP{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['avp']:.2f} kPa{Colors.RESET}"
@@ -185,38 +187,46 @@ def output_terminal(timestamp_display, calc, dots_terminal, dots_adjust_1, dots_
     void = ""
 
     # Dados de Entrada | Estado Atmosférico
-    st.text(dados_entrada_string,        space_terminal,      estado_atmosferico_string)
-    st.text(temperatura_string,          space_terminal,      bulbo_umido_string)
-    st.text(umidade_relativa_string,     space_terminal,      lcl_string)
-    st.text(pressao_atm_string,          space_terminal,      temperatura_virtual_string)
-    st.text(lux_string,                  space_terminal,      densidade_ar_string)
-    st.text(void,                        space_terminal,      razao_mistura_string)
+    st.text(dados_entrada_string,        space_terminal)
+    st.text(temperatura_string,          space_terminal)
+    st.text(umidade_relativa_string,     space_terminal)
+    st.text(pressao_atm_string,          space_terminal)
+    st.text(lux_string,                  space_terminal)
+    st.text(void,                        space_terminal)
+    st.text(long_division_string,        space_terminal)
+    print("")
+
+    # Propriedades da Umidade | Estado Atmosférico
+    st.text(propriedades_umidade_string, space_terminal,      estado_atmosferico_string)
+    st.text(ponto_orvalho_string,        space_terminal,      bulbo_umido_string)
+    st.text(avp_string,                  space_terminal,      lcl_string)
+    st.text(svp_string,                  space_terminal,      temperatura_virtual_string)
+    st.text(vpd_string,                  space_terminal,      densidade_ar_string)
+    st.text(umidade_absoluta_string,     space_terminal,      razao_mistura_string)
+    st.text(volume_especifico_string,    space_terminal)
     st.text(division_string,             space_terminal,      division_string)
     print("")
 
-    # Propriedades da Umidade | Energia do Ar
-    st.text(propriedades_umidade_string, space_terminal,      energia_ar_string)
-    st.text(ponto_orvalho_string,        space_terminal,      entalpia_ar_string)
-    st.text(avp_string,                  space_terminal,      energia_latente_string)
-    st.text(svp_string,                  space_terminal,      temperatura_potencial_string)
-    st.text(vpd_string,                  space_terminal)
-    st.text(umidade_absoluta_string,     space_terminal)
-    st.text(volume_especifico_string,    space_terminal)
-    st.text(division_string,            space_terminal,      division_string)
+    # Energia do Ar
+    st.text(energia_ar_string,           space_terminal)
+    st.text(entalpia_ar_string,          space_terminal)
+    st.text(energia_latente_string,      space_terminal)
+    st.text(temperatura_potencial_string,space_terminal)
+    st.text(division_string,             space_terminal)
     print("")
 
 # ============================================================================
 #  Output Debug
 # ============================================================================
-def output_debug(updates, scan_i2c0, scan_i2c1, error_i2c0, error_i2c1, usage_ram, status, dots_terminal_debug, dots_adjust_1, dots_adjust_2):
-    division_string = f"{Colors.GRAY}╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯{Colors.RESET}"
+def output_debug(updates, scan_i2c0, scan_i2c1, error_i2c0, error_i2c1, usage_ram, status, dots_large_terminal, dots_adjust_1, dots_adjust_2):
+    long_division_string = f"{Colors.GRAY}╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯{Colors.RESET}"
     
     print(f"{Colors.GRAY}╭───── {Colors.YELLOW}Debug {Colors.GRAY}─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮{Colors.RESET}")
-    print(f"{Colors.RESET}{f'  Updates{Colors.GRAY}':.<{dots_terminal_debug}}{Colors.YELLOW}{updates}{Colors.RESET}")
-    print(f"{Colors.RESET}{f'  RAM (Heap){Colors.GRAY}':.<{dots_terminal_debug}}{Colors.YELLOW}{usage_ram:.2f}%{Colors.RESET}")
-    print(f"{Colors.RESET}{f'  Erros I2C0{Colors.GRAY}':.<{dots_terminal_debug}}{Colors.YELLOW}{error_i2c0}{Colors.RESET}")
-    print(f"{Colors.RESET}{f'  Erros I2C1{Colors.GRAY}':.<{dots_terminal_debug}}{Colors.YELLOW}{error_i2c1}{Colors.RESET}")
-    print(f"{Colors.RESET}{f'  Endereços I2C0 (Sensores){Colors.GRAY}':.<{dots_terminal_debug}}{dots_adjust_1}{Colors.YELLOW}{scan_i2c0}{Colors.RESET}")
-    print(f"{Colors.RESET}{f'  Endereços I2C1 (Periféricos){Colors.GRAY}':.<{dots_terminal_debug}}{dots_adjust_2}{Colors.YELLOW}{scan_i2c1}{Colors.RESET}")
-    print(f"{Colors.RESET}{f'  Status{Colors.GRAY}':.<{dots_terminal_debug}}{Colors.YELLOW}{status}{Colors.RESET}")
-    print(f"{division_string}")
+    print(f"{Colors.RESET}{f'  Updates{Colors.GRAY}':.<{dots_large_terminal}}{Colors.YELLOW}{updates}{Colors.RESET}")
+    print(f"{Colors.RESET}{f'  RAM (Heap){Colors.GRAY}':.<{dots_large_terminal}}{Colors.YELLOW}{usage_ram:.2f}%{Colors.RESET}")
+    print(f"{Colors.RESET}{f'  Erros I2C0{Colors.GRAY}':.<{dots_large_terminal}}{Colors.YELLOW}{error_i2c0}{Colors.RESET}")
+    print(f"{Colors.RESET}{f'  Erros I2C1{Colors.GRAY}':.<{dots_large_terminal}}{Colors.YELLOW}{error_i2c1}{Colors.RESET}")
+    print(f"{Colors.RESET}{f'  Endereços I2C0 (Sensores){Colors.GRAY}':.<{dots_large_terminal}}{dots_adjust_1}{Colors.YELLOW}{scan_i2c0}{Colors.RESET}")
+    print(f"{Colors.RESET}{f'  Endereços I2C1 (Periféricos){Colors.GRAY}':.<{dots_large_terminal}}{dots_adjust_2}{Colors.YELLOW}{scan_i2c1}{Colors.RESET}")
+    print(f"{Colors.RESET}{f'  Status{Colors.GRAY}':.<{dots_large_terminal}}{Colors.YELLOW}{status}{Colors.RESET}")
+    print(f"{long_division_string}")
