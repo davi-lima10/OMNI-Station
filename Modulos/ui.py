@@ -184,7 +184,6 @@ def output_terminal(timestamp_display, calc, dots_terminal, dots_large_terminal,
     temperatura_virtual_string   =      f"{Colors.RESET}{f'    Temperatura Virtual{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['temperatura_virtual']:.2f}°C{Colors.RESET}"
     densidade_ar_string          =      f"{Colors.RESET}{f'    Densidade do Ar{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['densidade_ar']:.2f} kg/m³{Colors.RESET}"
     razao_mistura_string         =      f"{Colors.RESET}{f'    Razão de Mistura{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{dots_adjust_1}{calc['razao_mistura_g']:.2f} g/kg{Colors.RESET}"
-    void = ""
 
     # Dados de Entrada | Estado Atmosférico
     st.text(dados_entrada_string,        space_terminal)
@@ -192,7 +191,6 @@ def output_terminal(timestamp_display, calc, dots_terminal, dots_large_terminal,
     st.text(umidade_relativa_string,     space_terminal)
     st.text(pressao_atm_string,          space_terminal)
     st.text(lux_string,                  space_terminal)
-    st.text(void,                        space_terminal)
     st.text(long_division_string,        space_terminal)
     print("")
 
