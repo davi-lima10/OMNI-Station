@@ -78,7 +78,7 @@ def calcular_bulbo_umido(temperatura, umidade_relativa):
     except (ValueError, ZeroDivisionError):
         return None
 
-def calculos_atmosfericos(temperatura, umidade_relativa, pressao_atm_hpa, lux, dioxido_carbono):
+def calculos_atmosfericos(temperatura, umidade_relativa, pressao_atm_hpa, lux):
     # Conversões Básicas de Unidades
     pressao_atm = pressao_atm_hpa / 10
     pressao_atm_pa = pressao_atm_hpa * 100
@@ -118,7 +118,6 @@ def calculos_atmosfericos(temperatura, umidade_relativa, pressao_atm_hpa, lux, d
     'umidade_relativa': umidade_relativa,
     'pressao_atm_hpa': pressao_atm_hpa,
     'lux': lux,
-    'dioxido_carbono': dioxido_carbono,
     
     # Conversões
     'temperatura_k': temperatura_k,

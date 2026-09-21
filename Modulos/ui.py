@@ -165,7 +165,6 @@ def output_terminal(timestamp_display, calc, dots_terminal, dots_adjust_1, dots_
     umidade_relativa_string      =      f"{Colors.RESET}{f'  Umidade Relativa{Colors.GRAY}':.<{dots_terminal}}{Colors.BLUE}{calc['umidade_relativa']:.2f}%{Colors.RESET}"
     pressao_atm_string           =      f"{Colors.RESET}{f'  Pressão Atmosférica{Colors.GRAY}':.<{dots_terminal}}{dots_adjust_2}{Colors.BLUE}{calc['pressao_atm']:.1f} kPa{Colors.RESET}"
     lux_string                   =      f"{Colors.RESET}{f'  Lux{Colors.GRAY}':.<{dots_terminal}}{Colors.BLUE}{calc['lux']:.2f} lx{Colors.RESET}"
-    co2_string                   =      f"{Colors.RESET}{f'  CO₂{Colors.GRAY}':.<{dots_terminal}}{dots_adjust_2}{Colors.BLUE}{calc['dioxido_carbono']:.1f} ppm{Colors.RESET}"
     
     entalpia_ar_string           =      f"{Colors.RESET}{f'    Entalpia do Ar Úmido{Colors.GRAY}':.<{dots_terminal}}{dots_adjust_1}{Colors.MAGENTA}{calc['entalpia_ar']:.2f} kJ/kg{Colors.RESET}"
     energia_latente_string       =      f"{Colors.RESET}{f'    Energia Latente{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['energia_latente']:.2f} kJ/kg{Colors.RESET}"
@@ -183,6 +182,7 @@ def output_terminal(timestamp_display, calc, dots_terminal, dots_adjust_1, dots_
     temperatura_virtual_string   =      f"{Colors.RESET}{f'    Temperatura Virtual{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['temperatura_virtual']:.2f}°C{Colors.RESET}"
     densidade_ar_string          =      f"{Colors.RESET}{f'    Densidade do Ar{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['densidade_ar']:.2f} kg/m³{Colors.RESET}"
     razao_mistura_string         =      f"{Colors.RESET}{f'    Razão de Mistura{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{dots_adjust_1}{calc['razao_mistura_g']:.2f} g/kg{Colors.RESET}"
+    void = ""
 
     # Dados de Entrada | Estado Atmosférico
     st.text(dados_entrada_string,        space_terminal,      estado_atmosferico_string)
@@ -190,7 +190,7 @@ def output_terminal(timestamp_display, calc, dots_terminal, dots_adjust_1, dots_
     st.text(umidade_relativa_string,     space_terminal,      lcl_string)
     st.text(pressao_atm_string,          space_terminal,      temperatura_virtual_string)
     st.text(lux_string,                  space_terminal,      densidade_ar_string)
-    st.text(co2_string,                  space_terminal,      razao_mistura_string)
+    st.text(void,                        space_terminal,      razao_mistura_string)
     st.text(division_string,             space_terminal,      division_string)
     print("")
 

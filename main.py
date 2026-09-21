@@ -3,7 +3,7 @@
 # ============================================================================
 import time, gc
 from machine import Pin, I2C
-from Bibliotecas.sensors_env import AHT20, BMP280, VEML7700, SCD40
+from Bibliotecas.sensors_env import AHT20, BMP280, VEML7700
 
 
 # Módulos
@@ -31,7 +31,6 @@ pressao_atm_hpa = None
 aht = None
 bmp = None
 veml = None
-scd = None
 rtc = None
 oled = None
 
@@ -58,16 +57,13 @@ except Exception as e:
 #  Sensores (I2C0)
 # ----------------------------------------------------------------------------
 def setup_i2c0():
-    global sht, bmp, error_i2c0
+    global aht, bmp, veml, error_i2c0
     try:
         aht = AHT20(i2c0)
-        bmp = BMP280(i2c0)
+        bmp = BMP280(i2c0, addr=0x77)
         veml = VEML7700(i2c0)
-        scd = SCD40(i2c0)
-        scd.start_periodic()
     except Exception as e:
-        error_i2c0 = "N/A"#error_i2c0 = f"{Colors.RED}{e}"
-
+        error_i2c0 = f"{Colors.RED}{e}"
 setup_i2c0()
 
 # ----------------------------------------------------------------------------
@@ -89,7 +85,7 @@ while True:
     # ------------------------------------------------------------------------
     #  Leitura dos sensores
     # ------------------------------------------------------------------------
-    if aht is not None and bmp is not None and veml is not None and scd is not None:
+    if aht is not None and bmp is not None and veml is not None:
         try:
             soma_temperatura = 0
             soma_umidade_relativa = 0
@@ -99,9 +95,6 @@ while True:
                 temperatura, umidade_relativa = aht.measure() #type: ignore
                 _, pressao_atm_hpa = bmp.measure() #type: ignore
                 lux = veml.measure() #type: ignore
-                data_co2 = scd.measure()
-                if data_co2:
-                    dioxido_carbono, _, _ = data_co2 # type: ignore
 
                 soma_temperatura += temperatura
                 soma_umidade_relativa += umidade_relativa
@@ -150,7 +143,7 @@ while True:
             temperatura = 99.99
 
         # Cálculos
-        calc = calculos_atmosfericos(temperatura, umidade_relativa, pressao_atm_hpa, lux, dioxido_carbono) #type: ignore
+        calc = calculos_atmosfericos(temperatura, umidade_relativa, pressao_atm_hpa, lux) #type: ignore
 
         # Debug
         gc.collect()
@@ -174,6 +167,7 @@ while True:
 
         output_terminal(timestamp_display, calc, dots_terminal, dots_adjust_1, dots_adjust_2, space_terminal)
         output_debug(updates, scan_i2c0, scan_i2c1, error_i2c0, error_i2c1, usage_ram, status, dots_terminal_debug, dots_adjust_1, dots_adjust_2)
+        output_oled(updates, calc, oled, dots_oled)
 
     else:
         print(f"{Colors.CLEAR}")
