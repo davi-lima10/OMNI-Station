@@ -176,14 +176,19 @@ VEML7700_REG_ALS_CONF = const(0x00)
 VEML7700_REG_ALS = const(0x04)
 VEML7700_REG_WHITE = const(0x05)
 
-_VEML_IT = {100: (0xC0, 0.1), 200: (0x80, 0.2), 400: (0x00, 0.4),
-            800: (0x40, 0.8), 50: (0xCC, 0.05), 25: (0xD8, 0.025)}
-_VEML_GAIN = {1: (0x00, 1.0), 2: (0x01, 2.0),
-              0.125: (0x02, 0.125), 0.25: (0x03, 0.25)}
+# gain code -> bits 12:11
+_VEML_GAIN = {1.0: 0x00, 2.0: 0x01, 0.125: 0x02, 0.25: 0x03}
+# it code -> bits 9:6 (100=0b0000, 200=0b0001, 400=0b0010, 800=0b0011, 50=0b1000, 25=0b1100)
+_VEML_IT = {100: 0x00, 200: 0x01, 400: 0x02, 800: 0x03,
+            50: 0x08, 25: 0x0C}
+
+# Escada de sensibilidade: mais sensível -> menos sensível (auto-range)
+_VEML_LADDER = ((2.0, 800), (2.0, 400), (1.0, 200), (0.25, 100), (0.25, 50),
+                (0.125, 100), (0.125, 50), (0.125, 25))
 
 
 class VEML7700:
-    """Vishay VEML7700 ambient light sensor.
+    """Vishay VEML7700 ambient light sensor, 0 ~ ~120.000 lx (auto-range).
 
     Usage:
         veml = VEML7700(i2c)
@@ -195,7 +200,11 @@ class VEML7700:
         self.i2c = i2c
         self.addr = addr
         self._write_reg(VEML7700_REG_ALS_CONF, 0x0000)  # power on
-        self.configure(gain, it_ms)
+        time.sleep_ms(3)
+        self.auto_range = True
+        self.ladder_pos = _VEML_LADDER.index((gain, it_ms)) \
+            if (gain, it_ms) in _VEML_LADDER else 3
+        self._apply_config()
 
     def _write_reg(self, reg: int, value: int) -> None:
         self.i2c.writeto_mem(self.addr, reg, struct.pack('<H', value))
@@ -203,21 +212,42 @@ class VEML7700:
     def _read_reg(self, reg: int) -> int:
         return struct.unpack('<H', self.i2c.readfrom_mem(self.addr, reg, 2))[0]
 
-    def configure(self, gain: float = 1.0, it_ms: int = 100) -> None:
-        """gain: 1, 2, 0.25 or 0.125 | it_ms: 25, 50, 100, 200, 400, 800."""
-        if it_ms not in _VEML_IT or gain not in _VEML_GAIN:
-            raise ValueError("invalid gain or integration time")
-        self.gain = gain
-        self.it_ms = it_ms
-        self._write_reg(VEML7700_REG_ALS_CONF,
-                        _VEML_IT[it_ms][0] | _VEML_GAIN[gain][0])
-        time.sleep_ms(5)
+    def _apply_config(self) -> None:
+        self.gain, self.it_ms = _VEML_LADDER[self.ladder_pos]
+        conf = (_VEML_GAIN[self.gain] << 11) | (_VEML_IT[self.it_ms] << 6)
+        self._write_reg(VEML7700_REG_ALS_CONF, conf)
+        # 2x o tempo de integracao para o ALS estabilizar apos reconfig
+        time.sleep_ms(2 * self.it_ms + 10)
+        self._read_reg(VEML7700_REG_ALS)  # descarta a 1a leitura pos-config
+
+    def _read_raw(self) -> int:
+        time.sleep_ms(int(self.it_ms * 1.2) + 5)
+        return self._read_reg(VEML7700_REG_ALS)
+
+    def _lux(self, raw: int) -> float:
+        lux = 5.76 * raw / (self.it_ms * self.gain)
+        # Correcao de nao-linearidade (Vishay app note), p/ luz alta
+        if lux > 1000.0:
+            x = lux
+            lux = (6.0135e-13 * x**4 - 9.3924e-9 * x**3
+                   + 8.1488e-5 * x**2 + 1.0023 * x + 2.274e-4)
+        return lux
 
     def measure(self) -> float:
-        """Returns ambient light in lux (waits one integration cycle)."""
-        time.sleep_ms(int(self.it_ms * 1.2) + 5)
-        raw = self._read_reg(VEML7700_REG_ALS)
-        return 0.0576 * raw / (_VEML_GAIN[self.gain][1] * _VEML_IT[self.it_ms][1])
+        """Returns ambient light in lux (0 ~ ~120.000 lx)."""
+        if not self.auto_range:
+            return self._lux(self._read_raw())
+        for _ in range(4):  # converge o auto-range, max 4 iteracoes
+            raw = self._read_raw()
+            if raw > 10000 and self.ladder_pos < len(_VEML_LADDER) - 1:
+                self.ladder_pos += 1   # saturando -> menos sensibilidade
+                self._apply_config()
+            elif raw < 100 and self.ladder_pos > 0:
+                self.ladder_pos -= 1   # escuro -> mais sensibilidade
+                self._apply_config()
+            else:
+                break
+        return self._lux(raw)
 
     def read_white(self) -> int:
         """White channel raw counts (uncalibrated broadband)."""
