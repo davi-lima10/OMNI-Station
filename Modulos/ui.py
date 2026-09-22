@@ -156,21 +156,10 @@ def output_terminal(timestamp_display, calc, dots_terminal, dots_large_terminal,
     #  Variáveis do Terminal
     # ----------------------------------------------------------------------------
     division_string = f"{Colors.GRAY}╰────────────────────────────────────────────────────────────╯{Colors.RESET}"
-    long_division_string = f"{Colors.GRAY}╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯{Colors.RESET}"
 
-    dados_entrada_string         =      f"{Colors.GRAY}╭───── {Colors.BLUE}Dados de Entrada {Colors.GRAY}──────────────────────────────────────────────────────────────────────────────────────────────────────╮{Colors.RESET}"
     energia_ar_string            =      f"{Colors.GRAY}╭───── {Colors.MAGENTA}Energia do Ar {Colors.GRAY}────────────────────────────────────────╮{Colors.RESET}"
     propriedades_umidade_string  =      f"{Colors.GRAY}╭───── {Colors.MAGENTA}Propriedades da Umidade {Colors.GRAY}──────────────────────────────╮{Colors.RESET}"
     estado_atmosferico_string    =      f"{Colors.GRAY}╭───── {Colors.MAGENTA}Estado Atmosférico {Colors.GRAY}───────────────────────────────────╮{Colors.RESET}"
-
-    temperatura_string           =      f"{Colors.RESET}{f'  Temperatura{Colors.GRAY}':.<{dots_large_terminal}}{Colors.BLUE}{calc['temperatura']:.2f}°C{Colors.RESET}"
-    umidade_relativa_string      =      f"{Colors.RESET}{f'  Umidade Relativa{Colors.GRAY}':.<{dots_large_terminal}}{Colors.BLUE}{calc['umidade_relativa']:.2f}%{Colors.RESET}"
-    pressao_atm_string           =      f"{Colors.RESET}{f'  Pressão Atmosférica{Colors.GRAY}':.<{dots_large_terminal}}{dots_adjust_2}{Colors.BLUE}{calc['pressao_atm']:.1f} kPa{Colors.RESET}"
-    lux_string                   =      f"{Colors.RESET}{f'  Lux{Colors.GRAY}':.<{dots_large_terminal}}{Colors.BLUE}{calc['lux']:.2f} lx{Colors.RESET}"
-    
-    entalpia_ar_string           =      f"{Colors.RESET}{f'  Entalpia do Ar Úmido{Colors.GRAY}':.<{dots_terminal}}{dots_adjust_1}{Colors.MAGENTA}{calc['entalpia_ar']:.2f} kJ/kg{Colors.RESET}"
-    energia_latente_string       =      f"{Colors.RESET}{f'  Energia Latente{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['energia_latente']:.2f} kJ/kg{Colors.RESET}"
-    temperatura_potencial_string =      f"{Colors.RESET}{f'  Temperatura Potencial{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['temperatura_potencial']:.2f} K{Colors.RESET}"
 
     ponto_orvalho_string         =      f"{Colors.RESET}{f'  Ponto de Orvalho{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['ponto_orvalho']:.2f}°C{Colors.RESET}"
     avp_string                   =      f"{Colors.RESET}{f'  AVP{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['avp']:.2f} kPa{Colors.RESET}"
@@ -178,20 +167,25 @@ def output_terminal(timestamp_display, calc, dots_terminal, dots_large_terminal,
     vpd_string                   =      f"{Colors.RESET}{f'  VPD{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['vpd']:.2f} kPa{Colors.RESET}"
     umidade_absoluta_string      =      f"{Colors.RESET}{f'  Umidade Absoluta{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['umidade_absoluta']:.2f} g/m³{Colors.RESET}"
     volume_especifico_string     =      f"{Colors.RESET}{f'  Volume Específico do Ar{Colors.GRAY}':.<{dots_terminal}}{dots_adjust_1}{Colors.MAGENTA}{calc['volume_especifico']:.2f} m³/kg{Colors.RESET}"
+    energia_latente_string       =      f"{Colors.RESET}{f'  Energia Latente{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['energia_latente']:.2f} kJ/kg{Colors.RESET}"
 
     bulbo_umido_string           =      f"{Colors.RESET}{f'    Bulbo Úmido{Colors.GRAY}':.<{dots_terminal}}{dots_adjust_1}{Colors.MAGENTA}{bulbo_umido_txt}{Colors.RESET}"
     lcl_string                   =      f"{Colors.RESET}{f'    LCL{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['lcl']:.0f} m{Colors.RESET}"
     temperatura_virtual_string   =      f"{Colors.RESET}{f'    Temperatura Virtual{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['temperatura_virtual']:.2f}°C{Colors.RESET}"
     densidade_ar_string          =      f"{Colors.RESET}{f'    Densidade do Ar{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['densidade_ar']:.2f} kg/m³{Colors.RESET}"
     razao_mistura_string         =      f"{Colors.RESET}{f'    Razão de Mistura{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{dots_adjust_1}{calc['razao_mistura_g']:.2f} g/kg{Colors.RESET}"
+    entalpia_ar_string           =      f"{Colors.RESET}{f'    Entalpia do Ar Úmido{Colors.GRAY}':.<{dots_terminal}}{dots_adjust_1}{Colors.MAGENTA}{calc['entalpia_ar']:.2f} kJ/kg{Colors.RESET}"
+    temperatura_potencial_string =      f"{Colors.RESET}{f'   Temperatura Potencial{Colors.GRAY}':.<{dots_terminal}}{Colors.MAGENTA}{calc['temperatura_potencial']:.2f} K{Colors.RESET}"
+    void = ""
 
     # Dados de Entrada | Estado Atmosférico
-    st.text(dados_entrada_string,        space_terminal)
-    st.text(temperatura_string,          space_terminal)
-    st.text(umidade_relativa_string,     space_terminal)
-    st.text(pressao_atm_string,          space_terminal)
-    st.text(lux_string,                  space_terminal)
-    st.text(long_division_string,        space_terminal)
+    print(f"{Colors.GRAY}╭───── {Colors.BLUE}Dados de Entrada {Colors.GRAY}──────────────────────────────────────────────────────────────────────────────────────────────────────╮{Colors.RESET}")
+    print(f"{Colors.RESET}{f'  Temperatura{Colors.GRAY}':.<{dots_large_terminal}}{Colors.BLUE}{calc['temperatura']:.2f}°C{Colors.RESET}")
+    print(f"{Colors.RESET}{f'  Umidade Relativa{Colors.GRAY}':.<{dots_large_terminal}}{Colors.BLUE}{calc['umidade_relativa']:.2f}%{Colors.RESET}")
+    print(f"{Colors.RESET}{f'  Pressão Atmosférica{Colors.GRAY}':.<{dots_large_terminal}}{dots_adjust_2}{Colors.BLUE}{calc['pressao_atm']:.1f} kPa{Colors.RESET}")
+    print(f"{Colors.RESET}{f'  Lux{Colors.GRAY}':.<{dots_large_terminal}}{Colors.BLUE}{calc['lux']:.2f} lx{Colors.RESET}")
+    print("")
+    print(f"{Colors.GRAY}╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯{Colors.RESET}")
     print("")
 
     # Propriedades da Umidade | Estado Atmosférico
@@ -201,16 +195,9 @@ def output_terminal(timestamp_display, calc, dots_terminal, dots_large_terminal,
     st.text(svp_string,                  space_terminal,      temperatura_virtual_string)
     st.text(vpd_string,                  space_terminal,      densidade_ar_string)
     st.text(umidade_absoluta_string,     space_terminal,      razao_mistura_string)
-    st.text(volume_especifico_string,    space_terminal)
+    st.text(volume_especifico_string,    space_terminal,      entalpia_ar_string)
+    st.text(energia_latente_string,      space_terminal,      temperatura_potencial_string)
     st.text(division_string,             space_terminal,      division_string)
-    print("")
-
-    # Energia do Ar
-    st.text(energia_ar_string,           space_terminal)
-    st.text(entalpia_ar_string,          space_terminal)
-    st.text(energia_latente_string,      space_terminal)
-    st.text(temperatura_potencial_string,space_terminal)
-    st.text(division_string,             space_terminal)
     print("")
 
 # ============================================================================
