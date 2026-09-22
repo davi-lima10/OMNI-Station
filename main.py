@@ -90,6 +90,7 @@ while True:
             soma_temperatura = 0
             soma_umidade_relativa = 0
             soma_pressao_atm_hpa = 0
+            soma_lux = 0
 
             for _ in range(25):
                 temperatura, umidade_relativa = aht.measure() #type: ignore
@@ -99,11 +100,13 @@ while True:
                 soma_temperatura += temperatura
                 soma_umidade_relativa += umidade_relativa
                 soma_pressao_atm_hpa += pressao_atm_hpa
+                soma_lux += lux
                 time.sleep(0.1)
 
             temperatura = soma_temperatura / 25
             umidade_relativa = soma_umidade_relativa / 25
             pressao_atm_hpa = soma_pressao_atm_hpa / 25
+            lux = soma_lux / 25
 
             error_i2c0 = "N/A"
             tentativas_erro = 0
@@ -113,6 +116,7 @@ while True:
             temperatura = None
             umidade_relativa = None
             pressao_atm_hpa = None
+            lux = None
             tentativas_erro += 1
 
             if tentativas_erro >= 5:
